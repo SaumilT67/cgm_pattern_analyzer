@@ -21,13 +21,14 @@ def clean_dexcom_data(df):
 
     possible_glucose_cols = [
         "Glucose Value",
+        "GlucoseValue",
         "glucose",
         "Glucose",
         "glucose_mg_dL",
         "Sensor Glucose (mg/dL)",
         "mg/dL",
         "Value"
-    ]
+]
 
     time_col = next((col for col in possible_time_cols if col in df.columns), None)
     glucose_col = next((col for col in possible_glucose_cols if col in df.columns), None)
