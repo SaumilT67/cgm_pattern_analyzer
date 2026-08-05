@@ -1,14 +1,66 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>CGM Analyzer</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Glucose Review</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
 </head>
 <body>
-    <h1>Upload Dexcom CSV</h1>
+  <main class="shell narrow">
+    <header class="brand"><span class="brand-mark">G</span><span>Glucose Review</span></header>
+    <section class="hero">
+      <p class="eyebrow">CGM SUMMARY</p>
+      <h1>See your glucose data, clearly.</h1>
+      <p class="lede">Upload a CGM export to create a simple summary of what was measured. We only connect information you choose to provide—we do not guess at meals, medication, or causes.</p>
+    </section>
 
-    <form action="/upload" method="POST" enctype="multipart/form-data">
-        <input type="file" name="file" accept=".csv" required>
-        <button type="submit">Upload</button>
+    {% if error %}<div class="alert" role="alert"><strong>We couldn’t create the report.</strong><br>{{ error }}</div>{% endif %}
+
+    <form class="card upload-form" action="/upload" method="POST" enctype="multipart/form-data">
+      <div class="step-heading"><span class="step">1</span><div><h2>Add glucose data</h2><p>Choose a CSV file exported from your CGM.</p></div></div>
+      <label class="file-drop" for="file">
+        <span class="file-icon">↑</span>
+        <span><strong id="file-name">Choose a CSV file</strong><small>Dexcom-style CSV files are supported</small></span>
+        <input id="file" type="file" name="file" accept=".csv,text/csv" required>
+      </label>
+
+      <div class="step-heading target-heading"><span class="step">2</span><div><h2>Set the range to review</h2><p>Enter the range agreed with the person’s care team.</p></div></div>
+      <div class="target-inputs">
+        <label>Lower limit <span class="unit">mg/dL</span><input type="number" name="target_low" placeholder="70" min="1" step="1" inputmode="numeric" required></label>
+        <span class="range-dash">to</span>
+        <label>Upper limit <span class="unit">mg/dL</span><input type="number" name="target_high" placeholder="180" min="2" step="1" inputmode="numeric" required></label>
+      </div>
+
+      <div class="step-heading meal-step"><span class="step">3</span><div><h2>Usual meal times <span class="optional-tag prominent-tag">Optional</span></h2><p>Share a general routine if it is known. This does not mean a meal happened at these times.</p></div></div>
+      <div class="meal-times">
+        <div class="meal-time-grid">
+          <label>Breakfast <input type="time" name="usual_breakfast_time"></label>
+          <label>Lunch <input type="time" name="usual_lunch_time"></label>
+          <label>Dinner <input type="time" name="usual_dinner_time"></label>
+        </div>
+      </div>
+
+      <details class="optional">
+        <summary><span>Add more details <span class="optional-tag prominent-tag">Optional</span></span><span class="summary-hint">Notes or meal log</span></summary>
+        <div class="optional-content">
+          <p class="muted">Add only information that is already known. Leaving this blank will not affect the glucose summary.</p>
+          <div class="form-grid">
+            <label>Diabetes type or care group <input type="text" name="diabetes_type" placeholder="For example, type 1"></label>
+            <label>Current treatment notes <input type="text" name="therapy_context" placeholder="Only if relevant"></label>
+          </div>
+          <label>Notes for review <textarea name="clinician_notes" rows="3" placeholder="Anything useful to keep with this report"></textarea></label>
+          <label class="secondary-file">Meal or event log <span class="optional-tag">Optional CSV</span><input type="file" name="event_file" accept=".csv,text/csv"><small>To compare a logged meal with glucose, include <code>timestamp</code> and <code>event_type</code> (use <code>meal</code>). You can also include a label and carbohydrate grams.</small></label>
+        </div>
+      </details>
+      <button class="button primary" type="submit">Create summary <span>→</span></button>
     </form>
+    <p class="footnote">This is a review tool, not medical advice or a treatment plan. It is a prototype and is not a regulated clinical system.</p>
+  </main>
+  <script>
+    document.getElementById('file').addEventListener('change', (event) => {
+      document.getElementById('file-name').textContent = event.target.files[0]?.name || 'Choose a CSV file';
+    });
+  </script>
 </body>
 </html>

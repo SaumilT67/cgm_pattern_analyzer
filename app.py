@@ -1,8 +1,39 @@
-from flask import Flask, render_template, request
+from flask import Flask, jsonify, render_template, request
 import os
-from pipeline import process_pipeline, create_glucose_graph
-from analysis import calculate_daily_metrics, analyze_trends, detect_patterns, build_glucose_behavior_model, analyze_time_segments, detect_spike_events, analyze_recovery_behavior
-from reasoning import generate_behavior_hypotheses, generate_questions
+import tempfile
+from pathlib import Path
+from dotenv import load_dotenv
+import certifi
+
+
+load_dotenv()
+
+os.environ["SSL_CERT_FILE"] = certifi.where()
+
+print("GEMINI_API_KEY loaded:", os.getenv("GEMINI_API_KEY") is not None)
+print("Model:", os.getenv("GEMINI_MODEL"))
+
+def _load_local_env():
+    """Load local development secrets without overriding real deployment env vars."""
+    env_file = Path(__file__).with_name(".env")
+    if not env_file.is_file():
+        return
+    for line in env_file.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        key = key.strip().removeprefix("export ").strip()
+        value = value.strip().strip('"').strip("'")
+        if key and value:
+            os.environ.setdefault(key, value)
+
+
+_load_local_env()
+
+from pipeline import create_glucose_graph, load_event_log, process_pipeline
+from analysis import build_clinical_evidence_report
+from ai_reasoning import generate_gemini_review
 
 app = Flask(__name__)
 
@@ -17,115 +48,81 @@ def home():
 
 @app.route("/upload", methods=["POST"])
 def upload_file():
-    file = request.files["file"]
+    try:
+        report, df = _analyze_request()
+    except (KeyError, ValueError) as error:
+        return render_template("index.html", error=str(error)), 400
+    if request.path == "/api/analyze":
+        return jsonify(report)
+    return render_template("report.html", report=report, graph_html=create_glucose_graph(df))
 
-    filepath = os.path.join(app.config["UPLOAD_FOLDER"], file.filename)
-    file.save(filepath)
 
-    # STEP 1: clean data
-    df = process_pipeline(filepath)
+def _analyze_request():
+    file = request.files.get("file")
+    if not file or not file.filename:
+        raise ValueError("Please upload a CGM CSV file.")
+    target_low, target_high = _parse_targets()
+    os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
+    filepath = _save_temporary_upload(file)
+    event_path = None
+    try:
+        events = None
+        event_file = request.files.get("event_file")
+        if event_file and event_file.filename:
+            event_path = _save_temporary_upload(event_file)
+            events = load_event_log(event_path)
+        context = {
+            "diabetes_type": request.form.get("diabetes_type", "").strip() or None,
+            "therapy_context": request.form.get("therapy_context", "").strip() or None,
+            "clinician_notes": request.form.get("clinician_notes", "").strip() or None,
+        }
+        usual_meal_times = {
+            "breakfast": request.form.get("usual_breakfast_time", "").strip(),
+            "lunch": request.form.get("usual_lunch_time", "").strip(),
+            "dinner": request.form.get("usual_dinner_time", "").strip(),
+        }
+        usual_meal_times = {meal: time for meal, time in usual_meal_times.items() if time}
+        if usual_meal_times:
+            context["usual_meal_times"] = {
+                "times": usual_meal_times,
+                "note": "General schedule supplied by the user; it does not confirm that a meal occurred.",
+            }
+        context = {key: value for key, value in context.items() if value}
+        df = process_pipeline(filepath)
+        report = build_clinical_evidence_report(df, target_low, target_high, events, context)
+        report["ai_review"] = generate_gemini_review(report)
+        return report, df
+    finally:
+        for path in (filepath, event_path):
+            if path and os.path.exists(path):
+                os.remove(path)
 
-    # STEP 2: daily metrics
-    daily_metrics = calculate_daily_metrics(df)
 
-    time_analysis = analyze_time_segments(df)
+def _parse_targets():
+    """Read explicit targets without deriving them from demographic or CGM data."""
+    try:
+        target_low = float(request.form["target_low"])
+        target_high = float(request.form["target_high"])
+    except ValueError as error:
+        raise ValueError("Target limits must be numeric.") from error
+    if not 0 < target_low < target_high:
+        raise ValueError("The lower target must be greater than 0 and lower than the upper target.")
+    return target_low, target_high
 
-    # STEP 3: trends
-    trend_insights = analyze_trends(daily_metrics)
 
-    # STEP 4: behavior reasoning (moved out of app.py)
-    behavior = generate_behavior_hypotheses(trend_insights, daily_metrics)
+def _save_temporary_upload(file_storage):
+    """Store an upload only long enough to parse it; avoid filename collisions/retention."""
+    suffix = os.path.splitext(file_storage.filename)[1].lower() or ".csv"
+    with tempfile.NamedTemporaryFile(dir=app.config["UPLOAD_FOLDER"], suffix=suffix, delete=False) as temporary:
+        file_storage.save(temporary)
+        return temporary.name
 
-    # STEP 5: AI-style questions (moved out of app.py)
-    questions = generate_questions(behavior)
 
-    spike_events = detect_spike_events(df)
-
-    recovery_stats = analyze_recovery_behavior(df, spike_events)
-
-    # STEP 6: visualization
-    graph_html = create_glucose_graph(df)
-
-    # STEP 7: outputs
-    daily_table_html = daily_metrics.to_html(index=False, classes="table")
-    behavior_model = build_glucose_behavior_model(df)
-    insights = detect_patterns(df)
-
-    insight_html = "<br>".join([f"• {i}" for i in insights])
-    trend_html = "<br>".join([f"• {t}" for t in trend_insights])
-    questions_html = "<br>".join([f"• {q}" for q in questions])
-
-    behavior_html = "<br><br>".join([
-        f"<b>{b['pattern']}</b><br>" +
-        "<br>".join([f"- {c}" for c in b.get("possible_causes", [])])
-        for b in behavior
-    ])
-
-    time_html = ""
-
-    for period, stats in time_analysis.items():
-        time_html += f"""
-        <b>{period.replace("_", " ").title()}</b><br>
-        Average Glucose: {stats["average_glucose"]}<br>
-        Variability: {stats["variability"]}<br>
-        High Events: {stats["high_events"]}<br>
-        Low Events: {stats["low_events"]}<br>
-        Time in Range: {stats["time_in_range"]}%<br><br>
-        """
-
-    spike_html = ""
-
-    for s in spike_events:
-        spike_html += f"""
-        <b>Spike Event</b><br>
-        Start: {s['start']}<br>
-        Peak: {s['peak']} mg/dL<br>
-        Duration: {s['duration_min']} min<br><br>
-        """
-
-    recovery_html = f"""
-
-        <b>Average Recovery Time:</b> {recovery_stats['avg_recovery_time_min']} min<br>
-        <b>Failed Recoveries:</b> {recovery_stats['failed_recoveries']}<br>
-        <b>Rebound Lows:</b> {recovery_stats['rebound_low_events']}<br>
-        <b>Total Spikes Analyzed:</b> {recovery_stats['total_spikes_analyzed']}<br>
-        """
-        
-
-    return f"""
-        <h2>CGM Analysis Complete ✔</h2>
-
-        <h3>Insights</h3>
-        {insight_html}
-
-        <h3>Daily Metrics</h3>
-        {daily_table_html}
-
-        <h3>Glucose Graph</h3>
-        {graph_html}
-
-        <h3>Multi-Day Trends</h3>
-        {trend_html}
-
-        <h3>Time of Day Analysis</h3>
-        {time_html}
-    
-        <!--
-        <h3>Spike Events</h3>
-        spike_html
-        -->
-
-        <h3>Recovery Behavior</h3>
-        {recovery_html}
-
-        <h3>Behavior Hypotheses</h3>
-        {behavior_html}
-
-        <h3>Follow-Up Questions</h3>
-        {questions_html}   
-    
-        """
+@app.route("/api/analyze", methods=["POST"])
+def analyze_api():
+    return upload_file()
 
 
 if __name__ == "__main__":
     app.run(debug=True)
+

@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Glucose Summary</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar"><a class="brand" href="/"><span class="brand-mark">G</span><span>Glucose Review</span></a><a class="button quiet" href="/">New upload</a></header>
+    <section class="report-title">
+      <div><p class="eyebrow">GLUCOSE SUMMARY</p><h1>Glucose overview</h1><p class="report-meta">{{ report.data_quality.start[:10] }} – {{ report.data_quality.end[:10] }} <span>Target {{ report.target_range_mg_dl.lower }}–{{ report.target_range_mg_dl.upper }} mg/dL</span></p></div>
+      <button class="button secondary" id="download">Download data</button>
+    </section>
+
+    <section class="metric-grid" aria-label="Key glucose measurements">
+      <article class="metric-card accent"><span>Time in target</span><strong>{{ report.measured_metrics.time_in_range_percent }}<small>%</small></strong><p>{{ report.target_range_mg_dl.lower }}–{{ report.target_range_mg_dl.upper }} mg/dL</p></article>
+      <article class="metric-card"><span>Average glucose</span><strong>{{ report.measured_metrics.average_glucose_mg_dl }}<small> mg/dL</small></strong><p>Across all readings</p></article>
+      <article class="metric-card"><span>Glucose variation</span><strong>{{ report.measured_metrics.coefficient_of_variation_percent }}<small>%</small></strong><p>Coefficient of variation</p></article>
+      <article class="metric-card range-card"><span>Outside target</span><div class="range-split"><div><strong>{{ report.measured_metrics.time_above_range_percent }}<small>%</small></strong><p>Above</p></div><div><strong>{{ report.measured_metrics.time_below_range_percent }}<small>%</small></strong><p>Below</p></div></div></article>
+    </section>
+
+    <section class="card chart-card"><div class="section-heading"><div><h2>Glucose over time</h2><p>Each point is a reading from the uploaded file.</p></div></div>{{ graph_html | safe }}</section>
+
+    <section class="two-column">
+      <article class="card compact-card"><h2>Range periods</h2><p class="section-note">Consecutive readings outside your target.</p><div class="episode-row"><span class="episode-dot high"></span><div><strong>{{ report.observed_episodes.above_target | length }} above-target periods</strong></div></div><div class="episode-row"><span class="episode-dot low"></span><div><strong>{{ report.observed_episodes.below_target | length }} below-target periods</strong></div></div></article>
+      <article class="card compact-card"><h2>Average by time of day</h2><p class="section-note">Average glucose in each period.</p>{% for period, value in report.time_of_day_observations.items() %}<div class="period-row"><span>{{ period.title() }}</span><strong>{{ value.average_glucose_mg_dl }} <small>mg/dL</small></strong></div>{% endfor %}</article>
+    </section>
+
+    {% if report.usual_meal_time_observations %}
+    <section class="card compact-card meal-observations"><div class="section-heading"><div><h2>Near your usual meal times</h2><p>These show repeated timing patterns only. They do not confirm that a meal happened or caused a change.</p></div></div><div class="association-list">{% for item in report.usual_meal_time_observations %}<article class="association"><div><strong>{{ item.meal_name }} · {{ item.usual_time }}</strong><p>{{ item.days_with_enough_data }} days with enough readings</p></div><div><span>Average change</span><strong>{{ item.average_peak_change_mg_dl }} <small>mg/dL</small></strong></div><div><span>Above range in next 2 hrs</span><strong>{{ item.days_with_value_above_target_in_next_2h }} <small>days</small></strong></div></article>{% endfor %}</div></section>
+    {% endif %}
+
+    <section class="card ai-card">
+      <div class="section-heading"><div><p class="eyebrow">AI-ASSISTED REVIEW</p><h2>Patterns to discuss</h2><p>Context for a care-team conversation, not a diagnosis or treatment plan.</p></div></div>
+      {% if report.ai_review.status == 'available' %}
+        <p class="ai-summary">{{ report.ai_review.plain_language_summary }}</p>
+        {% if report.ai_review.observations %}<div class="ai-list">{% for item in report.ai_review.observations %}<article><strong>{{ item.finding }}</strong><p>{{ item.evidence }}</p><small>{{ item.timing_note }}</small></article>{% endfor %}</div>{% endif %}
+        {% if report.ai_review.possible_explanations_to_discuss %}<h3>Topics to discuss</h3><div class="ai-list">{% for item in report.ai_review.possible_explanations_to_discuss %}<article><strong>{{ item.topic }}</strong><p>{{ item.why_it_may_be_relevant }}</p><small>Helpful to know: {{ item.what_would_help_confirm }}</small></article>{% endfor %}</div>{% endif %}
+        {% if report.ai_review.questions_for_care_team %}<h3>Questions for the care team</h3><ul class="clean-list">{% for question in report.ai_review.questions_for_care_team %}<li>{{ question }}</li>{% endfor %}</ul>{% endif %}
+      {% elif report.ai_review.status == 'not_configured' %}
+        <div class="empty-state"><span>i</span><div><strong>AI review is not set up yet</strong><p>Add <code>GEMINI_API_KEY</code> to the server environment, then create a new summary.</p></div></div>
+      {% else %}
+        <div class="empty-state"><span>!</span><div><strong>AI review is temporarily unavailable</strong><p>{{ report.ai_review.message }}</p></div></div>
+      {% endif %}
+    </section>
+
+    {% if report.recorded_event_associations %}
+    <section class="card event-card">
+      <div class="section-heading"><div><h2>Meals and events you logged</h2><p>These are observations after recorded meals, not proof of what caused a change.</p></div></div>
+      <div class="association-list">{% for event in report.recorded_event_associations %}<article class="association"><div><strong>{{ event.event_label }}</strong><p>{{ event.event_time[:16].replace('T', ' · ') }}</p></div><div><span>Before</span><strong>{{ event.pre_event_glucose_mg_dl or '—' }} <small>mg/dL</small></strong></div><div><span>Highest in 2 hours</span><strong>{{ event.maximum_glucose_within_2h_mg_dl }} <small>mg/dL</small></strong></div></article>{% endfor %}</div>
+    </section>
+    {% endif %}
+
+    <section class="card data-notes">
+      <div class="data-summary"><strong>Data notes</strong><span>{{ report.data_quality.reading_count }} readings reviewed · {{ report.data_quality.estimated_data_coverage_percent }}% estimated coverage</span></div>
+      <details class="source-details"><summary>Export details</summary>{% if report.source_data.censored_high_readings or report.source_data.censored_low_readings %}<p class="muted">{{ report.source_data.censored_high_readings }} High and {{ report.source_data.censored_low_readings }} Low readings remain in the download but are not assigned values in the chart.</p>{% endif %}<p class="muted">{{ report.source_data.non_reading_rows }} setup or non-reading rows were excluded from glucose measurements.</p>{% if report.source_data.devices_listed_in_export %}<p class="muted">Devices: {{ report.source_data.devices_listed_in_export | join(', ') }}</p>{% endif %}{% if report.source_data.timestamped_non_glucose_events %}<p class="muted">Other records: {% for event, count in report.source_data.timestamped_non_glucose_events.items() %}{{ count }} {{ event }}{{ ', ' if not loop.last else '' }}{% endfor %}.</p>{% endif %}</details>
+    </section>
+    <p class="footnote">This summary supports a conversation with a care team; it does not diagnose conditions or direct treatment changes.</p>
+    <script id="analysis-json" type="application/json">{{ report | tojson }}</script>
+    <script>
+      document.getElementById('download').onclick = () => {
+        const contents = document.getElementById('analysis-json').textContent;
+        const link = document.createElement('a'); link.href = URL.createObjectURL(new Blob([contents], {type: 'application/json'}));
+        link.download = 'glucose-summary.json'; link.click(); URL.revokeObjectURL(link.href);
+      };
+    </script>
+  </main>
+</body>
+</html>
