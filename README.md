@@ -24,6 +24,27 @@ The report includes a guarded Gemini review only when the server has a
 `GEMINI_API_KEY` environment variable. On macOS with zsh, set it in the terminal
 that starts Flask (do not put it in this repository or paste it into the app):
 
+## Mock AI Integration
+
+The project currently includes a mock AI system to simulate how the future AI analysis layer will work. Instead of requiring an external AI API during early development, the mock AI generates responses based on the detected glucose patterns, trends, and behavioral insights produced by the analysis pipeline. This allows the interview system and recommendation workflow to be tested before connecting a real LLM API such as OpenAI or Gemini.
+
+The mock AI is controlled through an environment variable:
+
+```bash
+export MOCK_AI=true
+```
+
+When enabled, the application uses the built-in mock AI responses instead of calling an external AI service. This is useful for development, testing, and running the project without API costs or credentials.
+
+To disable the mock AI and prepare the system for a real AI backend:
+
+```bash
+export MOCK_AI=false
+```
+
+When disabled, the application will use the production AI pathway (such as an API-based LLM integration) if it has been configured.
+
+This design allows the AI layer to be developed independently from the data analysis pipeline while keeping the system flexible for future integration with real AI models.
 ```sh
 export GEMINI_API_KEY='your-new-key'
 python3 app.py
@@ -48,7 +69,9 @@ The integration sends a minimized evidence summary, not free-text reviewer notes
 or raw timestamp-level readings. It asks Gemini for plain-language observations,
 uncertainties, and questions for a care team; it prohibits diagnosis, treatment,
 diet, or medication recommendations. Set `GEMINI_MODEL` only if you need to
-override the default `gemini-2.5-flash`.
+override the default `gemini-3.5-flash`.
+
+
 
 ## Clinical and privacy boundary
 
