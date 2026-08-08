@@ -37,7 +37,7 @@ from ai_reasoning import generate_gemini_review
 
 app = Flask(__name__)
 
-UPLOAD_FOLDER = "uploads"
+UPLOAD_FOLDER = "/tmp"
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 
 
@@ -62,7 +62,7 @@ def _analyze_request():
     if not file or not file.filename:
         raise ValueError("Please upload a CGM CSV file.")
     target_low, target_high = _parse_targets()
-    os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
+    ##os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
     filepath = _save_temporary_upload(file)
     event_path = None
     try:
