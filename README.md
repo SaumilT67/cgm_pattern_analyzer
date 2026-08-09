@@ -1,5 +1,5 @@
 # CGM evidence review prototype
-Reserach paper - https://docs.google.com/document/d/10srSvTwi8gwdgswgEZNYoxfbTFUUfGuckuzQec5m_Ho/edit?usp=sharing
+Research paper - https://docs.google.com/document/d/10srSvTwi8gwdgswgEZNYoxfbTFUUfGuckuzQec5m_Ho/edit?usp=sharing
 
 This Flask app converts Dexcom-style CGM CSV data into an evidence-first report.
 It reports measured glucose metrics, data-quality limitations, distinct threshold
