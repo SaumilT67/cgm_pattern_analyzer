@@ -1,0 +1,23 @@
+{
+  "name": "cgm-pattern-analyzer",
+  "version": "1.0.0",
+  "description": "Research paper - https://docs.google.com/document/d/10srSvTwi8gwdgswgEZNYoxfbTFUUfGuckuzQec5m_Ho/edit?usp=sharing",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/SaumilT67/cgm_pattern_analyzer.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/SaumilT67/cgm_pattern_analyzer/issues"
+  },
+  "homepage": "https://github.com/SaumilT67/cgm_pattern_analyzer#readme",
+  "dependencies": {
+    "@vercel/analytics": "^2.0.1"
+  }
+}
