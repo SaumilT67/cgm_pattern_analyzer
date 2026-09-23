@@ -10,9 +10,6 @@ load_dotenv()
 
 os.environ["SSL_CERT_FILE"] = certifi.where()
 
-print("GEMINI_API_KEY loaded:", os.getenv("GEMINI_API_KEY") is not None)
-print("Model:", os.getenv("GEMINI_MODEL"))
-
 def _load_local_env():
     """Load local development secrets without overriding real deployment env vars."""
     env_file = Path(__file__).with_name(".env")
@@ -125,4 +122,3 @@ def analyze_api():
 
 if __name__ == "__main__":
     app.run(debug=True)
-

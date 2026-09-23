@@ -1,83 +1,65 @@
-# CGM evidence review prototype
-Research paper - https://docs.google.com/document/d/10srSvTwi8gwdgswgEZNYoxfbTFUUfGuckuzQec5m_Ho/edit?usp=sharing
+# Glucose Review
 
-This Flask app converts Dexcom-style CGM CSV data into an evidence-first report.
-It reports measured glucose metrics, data-quality limitations, distinct threshold
-episodes, and associations with *recorded* meal events. It deliberately does not
-guess meal times, medication dosing, activity, symptoms, or causes from a CGM trace.
+A small Flask project for looking through Dexcom-style CGM exports. Upload a CSV,
+choose the glucose range you use, and the app builds a report with time in range,
+average readings, daily timing patterns, and notes about the quality of the export.
 
-## Using the report
+Research paper: https://docs.google.com/document/d/10srSvTwi8gwdgswgEZNYoxfbTFUUfGuckuzQec5m_Ho/edit?usp=sharing
 
-- Enter the patient-specific target range at upload time; it is never inferred.
-- Optionally upload a timestamped event-log CSV with `timestamp,event_type` and,
-  when available, `label,carbohydrate_grams`. Only `event_type=meal` is used for
-  meal associations.
-- Use `POST /api/analyze` with the same multipart fields to get the complete
-  structured JSON payload for an AI or other clinical-review system.
+The goal is to make a CGM file easier to talk through. It does not diagnose a
+condition or recommend treatment changes.
 
-The JSON explicitly separates measured observations, recorded context, questions
-for review, and limitations. Any downstream AI should preserve those labels and
-must not convert a correlation into a cause or medication advice.
-
-## Optional Gemini review
-
-The report includes a guarded Gemini review only when the server has a
-`GEMINI_API_KEY` environment variable. On macOS with zsh, set it in the terminal
-that starts Flask (do not put it in this repository or paste it into the app):
-
-## Mock AI Integration
-
-The project currently includes a mock AI system to simulate how the future AI analysis layer will work. Instead of requiring an external AI API during early development, the mock AI generates responses based on the detected glucose patterns, trends, and behavioral insights produced by the analysis pipeline. This allows the interview system and recommendation workflow to be tested before connecting a real LLM API such as OpenAI or Gemini.
-
-The mock AI is controlled through an environment variable:
+## Run it locally
 
 ```bash
-export MOCK_AI=true
-```
-
-When enabled, the application uses the built-in mock AI responses instead of calling an external AI service. This is useful for development, testing, and running the project without API costs or credentials.
-
-To disable the mock AI and prepare the system for a real AI backend:
-
-```bash
-export MOCK_AI=false
-```
-
-When disabled, the application will use the production AI pathway (such as an API-based LLM integration) if it has been configured.
-
-This design allows the AI layer to be developed independently from the data analysis pipeline while keeping the system flexible for future integration with real AI models.
-```sh
-export GEMINI_API_KEY='your-new-key'
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
 python3 app.py
 ```
 
-### Run from VS Code
+Then open the local address Flask prints in the terminal.
 
-1. In the VS Code Explorer, create a file named `.env` in the project root.
-2. Add one line: `GEMINI_API_KEY=your-new-key` (replace only the value).
-3. Open **Run and Debug** in VS Code, choose **Run Glucose Review**, and click
-   the green play button. The checked-in `.vscode/launch.json` loads `.env` only
-   for that local run.
+## What to upload
 
-The app also reads a project-root `.env` file when it starts, so this works with
-VS Code's regular Run button as well. Restart the app after creating or changing
-the file.
+The main upload is a Dexcom-style CSV export. On the upload page, enter the target
+range you want the report to use. The range is not guessed from the data.
 
-`.env` is ignored by Git. Do not paste the key into any Python, HTML, or tracked
-configuration file.
+You can also add a simple event log as a CSV. It needs these columns:
 
-The integration sends a minimized evidence summary, not free-text reviewer notes
-or raw timestamp-level readings. It asks Gemini for plain-language observations,
-uncertainties, and questions for a care team; it prohibits diagnosis, treatment,
-diet, or medication recommendations. Set `GEMINI_MODEL` only if you need to
-override the default `gemini-3.5-flash`.
+```text
+timestamp,event_type
+```
 
+For meals, use `meal` as the event type. `label` and `carbohydrate_grams` are also
+accepted if you have them. The report only connects readings to events that were
+actually logged; it does not assume a meal, medication, or activity caused a change.
 
+## API
 
-## Clinical and privacy boundary
+`POST /api/analyze` accepts the same multipart form fields as the upload page and
+returns the report as JSON. This is useful if you want to use the calculations in
+another interface.
 
-This is a prototype, not a diagnosis or treatment system and not, by itself,
-HIPAA-compliant or a regulated medical device. It must not direct medication
-changes. A production clinical deployment requires clinical validation, human
-oversight, role-based access, audit logging, appropriate data retention controls,
-security assessment, and applicable regulatory/privacy review.
+## Optional review notes
+
+If `GEMINI_API_KEY` is available, the app can add short plain-language review notes.
+Only a minimized summary of the calculated report is sent; free-text notes and raw
+timestamp-level readings stay local.
+
+For local layout checks without an API key:
+
+```bash
+export MOCK_AI=true
+python3 app.py
+```
+
+The sample notes are for development only. To use the configured service instead,
+set `MOCK_AI=false` and provide the key through your shell or a local `.env` file.
+The `.env` file should stay out of Git.
+
+## Notes
+
+This is a prototype for personal review and care-team conversations. A production
+version would need clinical validation, privacy and security review, access controls,
+and appropriate data-retention practices.

@@ -6,7 +6,6 @@ from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 import time
 import socket
-from click import prompt
 
 MOCK_AI = os.getenv("MOCK_AI", "false").lower() == "true"
 
@@ -143,17 +142,12 @@ def generate_gemini_review(report):
     if MOCK_AI:
         return mock_review()
 
-    print("Inside ai_reasoning.py")
-    print("API KEY:", os.getenv("GEMINI_API_KEY"))
-
     """Return a parsed review or a safe status object; never expose the API key."""
     api_key = os.getenv("GEMINI_API_KEY")
     if not api_key:
         return {"status": "not_configured"}
     
     prompt = _prompt(report)
-
-    print("PROMPT LENGTH:", len(prompt))
 
     request_body = {
         "contents": [{"parts": [{"text": prompt}]}],
@@ -195,13 +189,7 @@ def generate_gemini_review(report):
         if body is None:
             raise TimeoutError("Gemini failed after 3 retries")
 
-        print("FULL GEMINI RESPONSE:")
-        print(json.dumps(body, indent=2))
-
         text = body["candidates"][0]["content"]["parts"][0]["text"]
-
-        print("GEMINI RAW RESPONSE:")
-        print(text)
 
         try:
             # Remove any accidental text before or after the JSON object
@@ -222,11 +210,6 @@ def generate_gemini_review(report):
             review_json = json.loads(clean_json)
 
         except json.JSONDecodeError as e:
-            print("INVALID GEMINI JSON:")
-            print(e)
-            print("RAW RESPONSE:")
-            print(text)
-
             return {
                 "status": "unavailable",
                 "message": "Gemini returned an incomplete or invalid response."
@@ -247,13 +230,6 @@ def generate_gemini_review(report):
         ValueError,
         json.JSONDecodeError,
     ) as e:
-
-        print("GEMINI ERROR TYPE:", type(e))
-        print("GEMINI ERROR:", e)
-
-        if isinstance(e, HTTPError):
-            print("HTTP STATUS:", e.code)
-            print(e.read().decode("utf-8"))
 
         return {
             "status": "unavailable",
