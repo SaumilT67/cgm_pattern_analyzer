@@ -17,29 +17,28 @@
   </header>
   <main class="shell narrow">
     <section class="hero">
-      <p class="eyebrow">CGM REPORT</p>
-      <h1>See what your glucose data is doing.</h1>
-      <p class="lede">Upload a CGM export to look at the numbers, the times they tend to repeat, and what may be useful to bring to your next visit.</p>
+      <h1>CGM Analyzer</h1>
+      <p class="lede">Upload a CGM CSV export and get a useful report back.</p>
     </section>
 
     {% if error %}<div class="alert" role="alert"><strong>We couldn’t create the report.</strong><br>{{ error }}</div>{% endif %}
 
     <form class="card upload-form" action="/upload" method="POST" enctype="multipart/form-data">
-      <div class="step-heading"><span class="step">1</span><div><h2>Add your glucose export</h2><p>Choose the CSV file you downloaded from your CGM.</p></div></div>
+      <div class="step-heading"><span class="step">1</span><div><h2>Glucose export</h2></div></div>
       <label class="file-drop" for="file">
         <span class="file-icon">↑</span>
-        <span><strong id="file-name">Choose a CSV file</strong><small>Built for Dexcom exports</small></span>
+        <span><strong id="file-name">Choose a CSV file</strong><small>Dexcom exports preferred</small></span>
         <input id="file" type="file" name="file" accept=".csv,text/csv" required>
       </label>
 
-      <div class="step-heading target-heading"><span class="step">2</span><div><h2>Add the range you use</h2><p>This keeps the report aligned with the range you and your care team use.</p></div></div>
+      <div class="step-heading target-heading"><span class="step">2</span><div><h2>Target range</h2><p>The lowest and highest value considered in your target range.</p></div></div>
       <div class="target-inputs">
         <label>Lower limit <span class="unit">mg/dL</span><input type="number" name="target_low" placeholder="70" min="1" step="1" inputmode="numeric" required></label>
         <span class="range-dash">to</span>
         <label>Upper limit <span class="unit">mg/dL</span><input type="number" name="target_high" placeholder="180" min="2" step="1" inputmode="numeric" required></label>
       </div>
 
-      <div class="step-heading meal-step"><span class="step">3</span><div><h2>Your usual meal times</h2><p>Add a rough schedule to make timing patterns easier to spot.</p></div></div>
+      <div class="step-heading meal-step"><span class="step">3</span><div><h2>Meal times </h2><p>Add a rough schedule to make timing patterns easier to spot.</p></div></div>
       <div class="meal-times">
         <div class="meal-time-grid">
           <label>Breakfast <input type="time" name="usual_breakfast_time" required></label>
@@ -51,18 +50,18 @@
       <details class="optional">
         <summary><span>Add context <span class="optional-tag prominent-tag">Optional</span></span><span class="summary-hint">Notes or meal log</span></summary>
         <div class="optional-content">
-          <p class="muted">A little context can make the report more useful when you look back at it later.</p>
+          <p class="muted">Could improve Ai-assisted report by providing more context.</p>
           <div class="form-grid">
-            <label>Diabetes type or care group <input type="text" name="diabetes_type" placeholder="For example, type 1"></label>
+            <label>Diabetes type or care group <input type="text" name="diabetes_type" placeholder="Type 1 or 2, Pre-Diabetes, etc."></label>
             <label>Current treatment notes <input type="text" name="therapy_context" placeholder="Only if relevant"></label>
           </div>
-          <label>Notes <textarea name="clinician_notes" rows="3" placeholder="Anything you want to remember when reviewing this"></textarea></label>
-          <label class="secondary-file">Meal or event log <span class="optional-tag">Optional CSV</span><input type="file" name="event_file" accept=".csv,text/csv"><small>To include meals in the report, use <code>timestamp</code> and <code>event_type</code> (use <code>meal</code>). A label and carbohydrate grams can also be included.</small></label>
+          <label>Notes <textarea name="clinician_notes" rows="3" placeholder=" Ex. 'I go on walks at 6:00 AM'"></textarea></label>
+          <label class="secondary-file">Meal or event log <span class="optional-tag">Optional CSV</span><input type="file" name="event_file" accept=".csv,text/csv"><small>Use <code>timestamp</code> and <code>event_type</code> (use <code>meal</code>). A label and carbohydrate grams can also be included.</small></label>
         </div>
       </details>
       <button class="button primary" type="submit">Create my report <span>→</span></button>
     </form>
-    <p class="footnote">For personal review and conversations with your care team. It does not replace medical advice or a treatment plan.</p>
+    <p class="footnote">For personal review and conversations with your care team. Will NOT  replace medical advice or a treatment plan.</p>
   </main>
   <script>
     document.getElementById('file').addEventListener('change', (event) => {
