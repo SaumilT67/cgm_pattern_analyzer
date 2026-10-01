@@ -1,103 +1,71 @@
 def generate_behavior_hypotheses(trend_insights, daily_df):
+    """Turn observed trends into cautious, non-diagnostic hypotheses."""
+    if not trend_insights:
+        return []
 
     hypotheses = []
 
-    df = daily_df.copy()
+    for insight in trend_insights:
+        if not insight:
+            continue
 
-    avg_glucose = df["avg_glucose"].mean()
-    avg_tir = df["time_in_range"].mean()
-    avg_var = df["variability"].mean()
-    avg_highs = df["high_events"].mean()
+        if isinstance(insight, dict):
+            description = (
+                insight.get("description")
+                or insight.get("finding")
+                or insight.get("pattern")
+                or ""
+            )
+            evidence = insight.get("evidence") or ""
+        else:
+            description = str(insight)
+            evidence = ""
 
-    # -------------------------
-    # HIGH GLUCOSE BASELINE
-    # -------------------------
-    if avg_glucose > 140:
+        description = str(description).strip()
+
+        if not description:
+            continue
+
         hypotheses.append({
-            "pattern": "Elevated baseline glucose across multiple days",
-            "confidence": 0.7,
-            "signals": [f"Avg glucose {avg_glucose:.1f}"],
-            "possible_causes": [
-                "Consistent high carbohydrate intake",
-                "Insulin resistance trend",
-                "Basal insulin mismatch"
-            ]
-        })
-
-    # -------------------------
-    # VARIABILITY
-    # -------------------------
-    if avg_var > 30:
-        hypotheses.append({
-            "pattern": "High glucose variability",
-            "confidence": 0.75,
-            "signals": [f"Variability {avg_var:.1f}"],
-            "possible_causes": [
-                "Irregular meal timing",
-                "Stress / sleep disruption",
-                "Mixed meal composition"
-            ]
-        })
-
-    # -------------------------
-    # LOW TIME IN RANGE
-    # -------------------------
-    if avg_tir < 70:
-        hypotheses.append({
-            "pattern": "Poor time in range",
-            "confidence": 0.8,
-            "signals": [f"TIR {avg_tir:.1f}%"],
-            "possible_causes": [
-                "Frequent post-meal spikes",
-                "Insulin timing mismatch",
-                "Diet inconsistency"
-            ]
-        })
-
-    # -------------------------
-    # SPIKE FREQUENCY
-    # -------------------------
-    if avg_highs > 5:
-        hypotheses.append({
-            "pattern": "Frequent glucose spikes",
-            "confidence": 0.7,
-            "signals": [f"{avg_highs:.1f} highs/day"],
-            "possible_causes": [
-                "High glycemic meals",
-                "Late eating",
-                "Snacking patterns"
-            ]
+            "pattern": description,
+            "evidence": str(evidence).strip(),
+            "possible_factors": [
+                "meal timing",
+                "activity",
+                "daily routine",
+                "other contextual factors",
+            ],
+            "confidence": "observational",
+            "note": (
+                "These are possible factors to discuss, not explanations "
+                "or diagnoses."
+            ),
         })
 
     return hypotheses
 
-
 def generate_questions(hypotheses):
+    """Create follow-up questions based on the observed hypotheses."""
+    if not hypotheses:
+        return []
 
     questions = []
 
-    for h in hypotheses:
+    for hypothesis in hypotheses:
+        if not isinstance(hypothesis, dict):
+            continue
 
-        p = h["pattern"].lower()
+        pattern = hypothesis.get("pattern", "")
+        pattern = str(pattern).strip()
 
-        if "baseline" in p:
-            questions.append(
-                "Do you notice higher glucose on days with similar meal timing or composition?"
-            )
+        if not pattern:
+            continue
 
-        if "variability" in p:
-            questions.append(
-                "Do your glucose levels change more on days with irregular meals or sleep?"
-            )
+        question = (
+            "Have you noticed anything in your meals, activity, or routine "
+            f"that happens around this pattern: {pattern}?"
+        )
 
-        if "time in range" in p:
-            questions.append(
-                "Which meals or times of day most often push you out of range?"
-            )
+        questions.append(question)
 
-        if "spikes" in p:
-            questions.append(
-                "Do spikes usually occur after specific meals or at consistent times?"
-            )
-
-    return list(dict.fromkeys(questions))
+    return questions

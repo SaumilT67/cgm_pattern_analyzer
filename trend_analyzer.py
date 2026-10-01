@@ -1,37 +1,52 @@
 import pandas as pd
 
 def calculate_daily_metrics(df):
-    # Make a copy
-    df = df.copy()
+    """Calculate the main glucose statistics for each calendar day."""
+    if df is None or df.empty:
+        return pd.DataFrame(
+            columns=[
+                "date",
+                "avg_glucose",
+                "time_in_range",
+                "high_events",
+                "low_events",
+                "variability",
+            ]
+        )
 
-    # Extract date from timestamp
-    df["date"] = df["timestamp"].dt.date
+    records = []
 
-    daily_metrics = []
+    data = df.copy()
+    data["date"] = data["timestamp"].dt.date
 
-    for date, day_df in df.groupby("date"):
+    for current_date, readings in data.groupby("date"):
+        glucose = readings["glucose"].dropna()
 
-        avg_glucose = day_df["glucose"].mean()
+        if glucose.empty:
+            continue
 
-        tir = (
-            len(day_df[(day_df["glucose"] >= 70) &
-                       (day_df["glucose"] <= 180)])
-            / len(day_df)
-        ) * 100
+        total_readings = len(glucose)
 
-        highs = len(day_df[day_df["glucose"] > 180])
+        in_range_count = (
+            (glucose >= 70) & (glucose <= 180)
+        ).sum()
 
-        lows = len(day_df[day_df["glucose"] < 70])
+        high_count = (glucose > 180).sum()
+        low_count = (glucose < 70).sum()
 
-        variability = day_df["glucose"].std()
+        range_percent = (in_range_count / total_readings) * 100
+        average = glucose.mean()
+        variability = glucose.std()
 
-        daily_metrics.append({
-            "date": date,
-            "avg_glucose": round(avg_glucose, 1),
-            "time_in_range": round(tir, 1),
-            "high_events": highs,
-            "low_events": lows,
-            "variability": round(variability, 1)
-        })
+        records.append(
+            {
+                "date": current_date,
+                "avg_glucose": round(average, 1),
+                "time_in_range": round(range_percent, 1),
+                "high_events": int(high_count),
+                "low_events": int(low_count),
+                "variability": round(variability, 1),
+            }
+        )
 
-    return pd.DataFrame(daily_metrics)
+    return pd.DataFrame(records)
